@@ -12,11 +12,12 @@
 pragma solidity ^0.8.9;
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 
 error Raffle__NotEnoughETHEntered();
 error Raffle__TransferFailed();
 
-contract Raffle is VRFConsumerBaseV2 {
+contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     /* State Variables */
     uint256 private immutable i_entranceFee;
     address payable[] private s_players;
@@ -62,6 +63,20 @@ contract Raffle is VRFConsumerBaseV2 {
 
         emit RaffleEnter(msg.sender);
     }
+
+    /**
+     * @dev this is function that the chainlink keeper nodes call
+     * they look for the `upkeepNeeded` to return true, //if it is true then it ready to create a random umber
+     * the following should be true in order to return true,
+     * 1. Our time interval should have passed
+     * 2. the lottery should have at least 1 player, and have some Eth
+     * 3. then our subscription is funded with link
+     * 4. the lottery should be an "open" state.
+     */
+
+    function checkUpkeep(
+        bytes calldata /*checkData*/
+    ) external override {}
 
     function requestRandomWinner() external {
         //Request the random number
