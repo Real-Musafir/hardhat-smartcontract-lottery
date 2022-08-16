@@ -17,7 +17,17 @@ import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 error Raffle__NotEnoughETHEntered();
 error Raffle__TransferFailed();
 error Raffle__NotOpen();
+error Raffle_UpkeepNotNeeded(
+    uint256 currentBalance,
+    uint256 numPlayers,
+    uint256 raffleState
+);
 
+/** @title A sample Raffle Contract
+ * @author Shahdath
+ * @notice This contract is for creating an untemperable decentralized smart contract
+ * @dev This implements Chinlink VRF v2 and Chainlinks Keepers
+ */
 contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
     /* Type declaration  */
     enum RaffleState {
@@ -92,9 +102,9 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
      */
 
     function checkUpkeep(
-        bytes calldata /*checkData*/
+        bytes memory /*checkData*/
     )
-        external
+        public
         override
         returns (
             bool upKeepNeeded,
@@ -108,11 +118,17 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         upKeepNeeded = (isOpen && timePassed && hasPlayers && hasBalance);
     }
 
-    function requestRandomWinner() external {
-        //Request the random number
-        //Once we get it, do something with it
-        // 2 transaction process
-
+    function performUpkeep(
+        bytes calldata /* performData */
+    ) external override {
+        (bool upKeepNeeded, ) = checkUpkeep("");
+        if (!upKeepNeeded) {
+            revert Raffle_UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
+        }
         s_raffleState = RaffleState.CALCULATING;
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane, //gasLane
@@ -134,6 +150,7 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
         s_recentWinner = recentWinner;
         s_raffleState = RaffleState.OPEN;
         s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
         (bool success, ) = recentWinner.call{value: address(this).balance}("");
 
         if (!success) {
@@ -152,5 +169,25 @@ contract Raffle is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
     function getRecentWinner() public view returns (address) {
         return s_recentWinner;
+    }
+
+    function getRaffleState() public view returns (RaffleState) {
+        return s_raffleState;
+    }
+
+    function getNumbers() public pure returns (uint256) {
+        return NUM_WORDS;
+    }
+
+    function getNumberOfPlayers() public view returns (uint256) {
+        return s_players.length;
+    }
+
+    function getLatestTimeStamp() public view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    function getRequestConfirmation() public pure returns (uint256) {
+        return REQUEST_CONFIRMATION;
     }
 }
